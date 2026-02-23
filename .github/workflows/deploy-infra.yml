@@ -42,11 +42,37 @@ jobs:
                   echo "resource_group=rg-pregate-dev" >> $GITHUB_OUTPUT ;;
           esac
 
+      - name: Prepare Azure credentials
+        id: azcreds
+        run: |
+          if [ -n "$AZURE_CLIENT_ID" ]; then
+            CREDS=$(jq -n \
+              --arg cid "$AZURE_CLIENT_ID" \
+              --arg csec "$AZURE_CLIENT_SECRET" \
+              --arg sid "$AZURE_SUBSCRIPTION_ID" \
+              --arg tid "$AZURE_TENANT_ID" \
+              '{clientId:$cid,clientSecret:$csec,subscriptionId:$sid,tenantId:$tid}')
+          else
+            CREDS="$AZURE_CREDENTIALS"
+          fi
+          if [ -z "$CREDS" ] || [ "$CREDS" = "null" ]; then
+            echo "::error::Set AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID OR AZURE_CREDENTIALS in GitHub Secrets."
+            exit 1
+          fi
+          echo "creds<<EOF" >> $GITHUB_OUTPUT
+          echo "$CREDS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+
       - name: Azure login
         uses: azure/login@v1
         with:
-          # Use individual secrets (recommended) or AZURE_CREDENTIALS JSON
-          creds: ${{ secrets.AZURE_CLIENT_ID != '' && format('{{"clientId":"{0}","clientSecret":"{1}","subscriptionId":"{2}","tenantId":"{3}"}}', secrets.AZURE_CLIENT_ID, secrets.AZURE_CLIENT_SECRET, secrets.AZURE_SUBSCRIPTION_ID, secrets.AZURE_TENANT_ID) || secrets.AZURE_CREDENTIALS }}
+          creds: ${{ steps.azcreds.outputs.creds }}
 
       - name: Deploy Bicep
         uses: azure/arm-deploy@v1
