@@ -1,14 +1,6 @@
 name: Deploy Backend
 
 on:
-  push:
-    branches:
-      - main
-      - uat
-      - dev
-    paths:
-      - 'api/**'
-      - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
     inputs:
       environment:
@@ -23,8 +15,9 @@ on:
 
 jobs:
   build-and-deploy:
-    name: Build & Deploy API (${{ github.event.inputs.environment || github.ref_name }})
+    name: Build & Deploy API (${{ github.event.inputs.environment }})
     runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
 
     steps:
       - name: Checkout
@@ -33,7 +26,7 @@ jobs:
       - name: Determine environment
         id: env
         run: |
-          ENV="${{ github.event.inputs.environment || (github.ref_name == 'main' && 'prod' || github.ref_name == 'uat' && 'uat' || 'dev') }}"
+          ENV="${{ github.event.inputs.environment }}"
           case "$ENV" in
             prod) echo "environment=prod" >> $GITHUB_OUTPUT
                   echo "acr=acrpregatemrod" >> $GITHUB_OUTPUT

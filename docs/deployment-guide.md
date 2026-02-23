@@ -16,8 +16,7 @@ Your laptop  →  GitHub  →  GitHub Actions  →  Azure
                                deploys it        app
 ```
 
-**GitHub Actions** is an automation system. Every time you push code to GitHub,
-it automatically builds and deploys the app to Azure — you do not have to do it manually.
+**GitHub Actions** runs your deployment workflows. Deployments are **manual** — you trigger them from the Actions tab when ready.
 
 **Azure** hosts three things:
 
@@ -50,7 +49,7 @@ There are three environments, each on its own Git branch:
 | `prod`      | `main`     | Live production — real users                      |
 
 
-Pushing to a branch automatically deploys to the matching environment.
+Deployments are triggered manually from the Actions tab. Choose the workflow and environment (dev, uat, prod).
 
 ---
 
@@ -313,9 +312,13 @@ This outputs a JSON block like:
 
 GitHub Actions reads secrets from your repository settings — they are never visible in code.
 
-Go to your GitHub repository → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
+**Important:** The workflows use **Environment secrets**, not Repository secrets. You must create environments and add secrets there.
 
-Add these secrets one by one:
+1. Go to your GitHub repository → **Settings** → **Environments**
+2. Create three environments: `dev`, `uat`, `prod` (if they don't exist)
+3. For each environment, click it → **Environment secrets** → **Add secret**
+
+Add these secrets to **each environment** (dev, uat, prod):
 
 
 | Secret name                       | Value                                      |
@@ -442,10 +445,11 @@ Repeat for `uat` and `prod` with their respective passwords and hostnames.
 
 ## Step 11 — Push Code to Trigger Deployment
 
-From here on, deployment is fully automatic. You just push code to the right branch.
+From here on, deployment is **manual**. Go to Actions → select the workflow → Run workflow → choose environment.
 
 ```bash
 # Deploy to dev
+# Then: Actions → Deploy Backend / Deploy Frontend → Run workflow → choose dev
 git push origin dev
 
 # Deploy to uat
@@ -502,7 +506,7 @@ Or in the Azure portal: go to **Container Apps** → your app → **Log stream**
 | ---------------------------------------------------- | ------------------------------------------------------------- |
 | First-time setup                                     | Follow all steps above (one-off)                              |
 | Deploy a code change                                 | Push to the relevant branch — GitHub Actions handles the rest |
-| Change infrastructure (database size, scaling, etc.) | Edit `infra/` files and push — Bicep redeploys automatically  |
+| Change infrastructure (database size, scaling, etc.) | Edit `infra/` files, push, then Actions → Deploy Infrastructure → Run workflow  |
 | New environment secret                               | Add to Azure Key Vault, then redeploy infrastructure          |
 
 
