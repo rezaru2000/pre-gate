@@ -376,6 +376,10 @@ If the workflow fails with `Login failed... Ensure 'client-id' and 'tenant-id' a
 
 This creates all the Azure resources (database, container registry, container app, static web app).
 
+> **Note on the Container App image:** The Container Registry is empty on first deploy — there is no
+> API image yet. The Bicep uses a public Microsoft placeholder image so the Container App can start
+> successfully. The real API image is pushed in Step 11 when you run Deploy Backend.
+
 Run this for each environment:
 
 ```bash
@@ -406,6 +410,25 @@ containerAppUrl     = https://ca-pregate-dev.azurecontainerapps.io
 postgresFqdn        = pregate-dev.postgres.database.azure.com
 staticWebAppDeploymentToken = <long token>
 ```
+
+### Troubleshooting: "DeploymentActive" error
+
+If you see `The deployment ... cannot be saved, because this would overwrite an existing deployment which is still active`, a previous deployment is still running. Cancel it first, then re-run:
+
+```bash
+# Cancel the stuck deployment
+az deployment group cancel \
+  --name main \
+  --resource-group rg-pregate-dev
+
+# Wait until status shows "Canceled"
+az deployment group show \
+  --name main \
+  --resource-group rg-pregate-dev \
+  --query "properties.provisioningState" -o tsv
+```
+
+Then trigger the workflow again from the Actions tab.
 
 ### Get and save the Static Web App deployment tokens
 
@@ -455,34 +478,40 @@ Repeat for `uat` and `prod` with their respective passwords and hostnames.
 
 ---
 
-## Step 11 — Push Code to Trigger Deployment
+## Step 11 — Deploy Backend and Frontend
 
-From here on, deployment is **manual**. Go to Actions → select the workflow → Run workflow → choose environment.
+Now that infrastructure is up, deploy the actual application. **Always deploy in this order:**
 
-> **Run workflow button missing?** It only appears when the workflow file is on your repository's **default branch** (usually `main`). Merge your changes to main first.
+### 11a. Deploy Backend (API)
 
-```bash
-# Deploy to dev
-# Then: Actions → Deploy Backend / Deploy Frontend → Run workflow → choose dev
-git push origin dev
+Actions tab → **Deploy Backend** → **Run workflow** → choose environment (e.g. `dev`)
 
-# Deploy to uat
-git push origin uat
+This will:
+1. Build the Docker image from the `api/` folder
+2. Push it to Azure Container Registry
+3. Update the Container App to use the new image (replacing the placeholder)
 
-# Deploy to prod (merge dev → uat → main first, then push)
-git push origin main
-```
+### 11b. Deploy Frontend (UI)
 
-GitHub Actions will:
+Actions tab → **Deploy Frontend** → **Run workflow** → choose the same environment
 
-1. Detect which files changed
-2. Build the Docker image for the API (if `api/` changed)
-3. Push the image to Azure Container Registry
-4. Update the Container App to use the new image
-5. Build and deploy the React UI (if `ui/` changed)
-6. Re-deploy infrastructure (if `infra/` changed)
+This will:
+1. Build the React app with `npm run build`
+2. Deploy the built files to Azure Static Web Apps
+
+> **Run workflow button missing?** It only appears when the workflow file is on your repository's **default branch** (usually `main`). Make sure your latest code is merged to `main`.
 
 You can watch the progress under your GitHub repository → **Actions** tab.
+
+### For future deployments
+
+Push your code changes to the relevant branch, then trigger the workflows manually:
+
+```bash
+git push origin dev   # or uat, or main for prod
+```
+
+Then: Actions → **Deploy Backend** or **Deploy Frontend** → **Run workflow** → choose environment.
 
 ---
 
