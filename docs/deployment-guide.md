@@ -113,7 +113,7 @@ A **Resource Group** is a folder in Azure that holds related resources.
 Create one per environment:
 
 ```bash
-# Replace YOUR_SUBSCRIPTION_ID with the value from Step 2c
+# Replace YOUR_34dbcaff-2d71-4dcd-9729-2bed217c6fef with the value from Step 2c
 # Replace australiaeast with your preferred Azure region
 
 az group create --name rg-pregate-dev  --location australiaeast
@@ -126,13 +126,35 @@ az group create --name rg-pregate-prod --location australiaeast
 
 ---
 
-## Step 4 — Create Azure Key Vaults
+## Step 4 — Register Resource Providers
+
+Azure subscriptions must register resource providers before creating certain resources.
+If you see `MissingSubscriptionRegistration` or `The subscription is not registered to use namespace 'Microsoft.KeyVault'`, run:
+
+```bash
+# Register providers used by PreGate (Key Vault, Container Apps, PostgreSQL, etc.)
+az provider register --namespace Microsoft.KeyVault
+az provider register --namespace Microsoft.App
+az provider register --namespace Microsoft.OperationalInsights
+az provider register --namespace Microsoft.ContainerRegistry
+az provider register --namespace Microsoft.DBforPostgreSQL
+az provider register --namespace Microsoft.Web
+
+# Wait for registration to complete (can take 1–2 minutes)
+az provider show --namespace Microsoft.KeyVault --query "registrationState" -o tsv
+```
+
+When the output shows `Registered`, proceed to the next step.
+
+---
+
+## Step 5 — Create Azure Key Vaults
 
 **Key Vault** stores secrets (database passwords, JWT keys) safely — never hard-coded in files.
 Each environment gets its own Key Vault.
 
 ```bash
-# Replace YOUR_SUBSCRIPTION_ID everywhere below
+# Replace YOUR_34dbcaff-2d71-4dcd-9729-2bed217c6fef everywhere below
 
 # Dev
 az keyvault create \
@@ -152,6 +174,36 @@ az keyvault create \
   --resource-group rg-pregate-prod \
   --location australiaeast
 ```
+
+### Grant yourself permission to set secrets
+
+Key Vault uses RBAC. Grant your user the **Key Vault Secrets Officer** role on each vault (run once per vault):
+
+```bash
+# Get your user identity
+USER_ID=$(az ad signed-in-user show --query id -o tsv)
+SUB_ID=$(az account show --query id -o tsv)
+
+# Dev
+az role assignment create \
+  --role "Key Vault Secrets Officer" \
+  --assignee "$USER_ID" \
+  --scope "/subscriptions/$SUB_ID/resourceGroups/rg-pregate-dev/providers/Microsoft.KeyVault/vaults/kv-pregate-dev"
+
+# UAT
+az role assignment create \
+  --role "Key Vault Secrets Officer" \
+  --assignee "$USER_ID" \
+  --scope "/subscriptions/$SUB_ID/resourceGroups/rg-pregate-uat/providers/Microsoft.KeyVault/vaults/kv-pregate-uat"
+
+# Prod
+az role assignment create \
+  --role "Key Vault Secrets Officer" \
+  --assignee "$USER_ID" \
+  --scope "/subscriptions/$SUB_ID/resourceGroups/rg-pregate-prod/providers/Microsoft.KeyVault/vaults/kv-pregate-prod"
+```
+
+> **If you get "Forbidden" when setting secrets**, you need to run the role assignment commands above. Role changes can take 1–2 minutes to propagate.
 
 ### Add secrets to each Key Vault
 
@@ -203,12 +255,12 @@ az keyvault secret set \
 
 ---
 
-## Step 5 — Update the Parameter Files
+## Step 6 — Update the Parameter Files
 
 The Bicep parameter files in `infra/` reference your Key Vault by Subscription ID.
 You need to replace the placeholder with your real Subscription ID.
 
-Open each of these three files and replace `SUBSCRIPTION_ID` with your actual Subscription ID from Step 2c:
+Open each of these three files and replace `34dbcaff-2d71-4dcd-9729-2bed217c6fef` with your actual Subscription ID from Step 2c:
 
 - [infra/parameters.dev.json](../infra/parameters.dev.json)
 - [infra/parameters.uat.json](../infra/parameters.uat.json)
@@ -217,14 +269,14 @@ Open each of these three files and replace `SUBSCRIPTION_ID` with your actual Su
 In each file, you will see lines like:
 
 ```json
-"id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/rg-pregate-dev/..."
+"id": "/subscriptions/34dbcaff-2d71-4dcd-9729-2bed217c6fef/resourceGroups/rg-pregate-dev/..."
 ```
 
-Replace `SUBSCRIPTION_ID` with your real value. Do NOT change anything else.
+Replace `34dbcaff-2d71-4dcd-9729-2bed217c6fef` with your real value. Do NOT change anything else.
 
 ---
 
-## Step 6 — Create a Service Principal for GitHub Actions
+## Step 7 — Create a Service Principal for GitHub Actions
 
 GitHub Actions needs permission to deploy to your Azure subscription.
 A **Service Principal** is a special Azure account created just for automation.
@@ -233,7 +285,7 @@ A **Service Principal** is a special Azure account created just for automation.
 az ad sp create-for-rbac \
   --name "sp-pregate-github-actions" \
   --role Contributor \
-  --scopes /subscriptions/YOUR_SUBSCRIPTION_ID \
+  --scopes /subscriptions/YOUR_34dbcaff-2d71-4dcd-9729-2bed217c6fef \
   --sdk-auth
 ```
 
@@ -257,7 +309,7 @@ This outputs a JSON block like:
 
 ---
 
-## Step 7 — Add Secrets to GitHub
+## Step 8 — Add Secrets to GitHub
 
 GitHub Actions reads secrets from your repository settings — they are never visible in code.
 
@@ -268,16 +320,16 @@ Add these secrets one by one:
 
 | Secret name                       | Value                                      |
 | --------------------------------- | ------------------------------------------ |
-| `AZURE_CREDENTIALS`               | The entire JSON block from Step 6          |
-| `AZURE_SUBSCRIPTION_ID`           | Your Subscription ID from Step 2c          |
-| `AZURE_STATIC_WEB_APP_TOKEN_DEV`  | Leave blank for now — fill in after Step 8 |
-| `AZURE_STATIC_WEB_APP_TOKEN_UAT`  | Leave blank for now — fill in after Step 8 |
-| `AZURE_STATIC_WEB_APP_TOKEN_PROD` | Leave blank for now — fill in after Step 8 |
+| `AZURE_CREDENTIALS`               | The entire JSON block from Step 7          |
+| `AZURE_34dbcaff-2d71-4dcd-9729-2bed217c6fef`           | Your Subscription ID from Step 2c          |
+| `AZURE_STATIC_WEB_APP_TOKEN_DEV`  | Leave blank for now — fill in after Step 9 |
+| `AZURE_STATIC_WEB_APP_TOKEN_UAT`  | Leave blank for now — fill in after Step 9 |
+| `AZURE_STATIC_WEB_APP_TOKEN_PROD` | Leave blank for now — fill in after Step 9 |
 
 
 ---
 
-## Step 8 — Deploy the Infrastructure (First Time Only)
+## Step 9 — Deploy the Infrastructure (First Time Only)
 
 This creates all the Azure resources (database, container registry, container app, static web app).
 
@@ -336,14 +388,14 @@ Go back to GitHub → **Settings** → **Secrets** and fill in:
 
 ---
 
-## Step 9 — Run Database Migrations
+## Step 10 — Run Database Migrations
 
 The cloud database starts empty. You need to run the SQL migration scripts to create the tables.
 
 First get the database connection string. Replace the placeholders:
 
 ```bash
-# The host (FQDN) was shown in Step 8 output, or find it:
+# The host (FQDN) was shown in Step 9 output, or find it:
 az postgres flexible-server list --resource-group rg-pregate-dev --query "[0].fullyQualifiedDomainName" -o tsv
 ```
 
@@ -360,7 +412,7 @@ Repeat for `uat` and `prod` with their respective passwords and hostnames.
 
 ---
 
-## Step 10 — Push Code to Trigger Deployment
+## Step 11 — Push Code to Trigger Deployment
 
 From here on, deployment is fully automatic. You just push code to the right branch.
 
@@ -451,6 +503,6 @@ Or in the Azure portal: go to **Container Apps** → your app → **Log stream**
 - Think of Bicep like a config file that tells Azure what to build
 
 > **Tip:** You do not need to understand Bicep to use it. The files are already written —
-> just replace `SUBSCRIPTION_ID` and run the deployment commands. Learn Bicep later when you
+> just replace `34dbcaff-2d71-4dcd-9729-2bed217c6fef` and run the deployment commands. Learn Bicep later when you
 > want to change the infrastructure.
 

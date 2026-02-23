@@ -11,7 +11,7 @@
     "dbAdminPassword": {
       "reference": {
         "keyVault": {
-          "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/rg-pregate-prod/providers/Microsoft.KeyVault/vaults/kv-pregate-prod"
+          "id": "/subscriptions/34dbcaff-2d71-4dcd-9729-2bed217c6fef/resourceGroups/rg-pregate-prod/providers/Microsoft.KeyVault/vaults/kv-pregate-prod"
         },
         "secretName": "db-admin-password"
       }
@@ -19,7 +19,7 @@
     "jwtSecret": {
       "reference": {
         "keyVault": {
-          "id": "/subscriptions/SUBSCRIPTION_ID/resourceGroups/rg-pregate-prod/providers/Microsoft.KeyVault/vaults/kv-pregate-prod"
+          "id": "/subscriptions/34dbcaff-2d71-4dcd-9729-2bed217c6fef/resourceGroups/rg-pregate-prod/providers/Microsoft.KeyVault/vaults/kv-pregate-prod"
         },
         "secretName": "jwt-secret"
       }
