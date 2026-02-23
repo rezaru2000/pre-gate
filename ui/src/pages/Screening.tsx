@@ -6,7 +6,8 @@ import { config } from '../config/env';
 interface Question {
   id: string;
   question_text: string;
-  control_type: 'radio' | 'checkbox' | 'true_false';
+  control_type: 'radio' | 'checkbox' | 'true_false' | 'text';
+  options?: string[] | null;
   display_order: number;
 }
 
@@ -66,6 +67,10 @@ export default function ScreeningPage() {
     });
   }
 
+  function handleTextChange(questionId: string, value: string) {
+    setAnswers((prev) => ({ ...prev, [questionId]: value }));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!survey) return;
@@ -108,12 +113,29 @@ export default function ScreeningPage() {
   }
 
   function renderQuestion(q: Question) {
+    // Options: use question's options (2-6 items), fallback for true_false
     const options =
-      q.control_type === 'true_false'
+      q.options && q.options.length >= 2
+        ? q.options
+        : q.control_type === 'true_false'
         ? ['True', 'False']
-        : q.control_type === 'radio'
-        ? ['Option A', 'Option B', 'Option C', 'Option D']
         : ['Option A', 'Option B', 'Option C', 'Option D'];
+
+    if (q.control_type === 'text') {
+      return (
+        <div key={q.id} style={styles.questionBlock}>
+          <p style={styles.questionText}>{q.question_text}</p>
+          <input
+            type="text"
+            style={styles.textInput}
+            value={(answers[q.id] as string) ?? ''}
+            onChange={(e) => handleTextChange(q.id, e.target.value)}
+            placeholder="Type your answer"
+            autoComplete="off"
+          />
+        </div>
+      );
+    }
 
     if (q.control_type === 'checkbox') {
       return (
@@ -208,6 +230,20 @@ export default function ScreeningPage() {
     );
   }
 
+  // No questions in the global pool
+  if (!survey?.questions?.length) {
+    return (
+      <div style={styles.center}>
+        <div style={styles.card}>
+          <h2 style={styles.heading}>Survey Not Ready</h2>
+          <p style={styles.body}>
+            No questions in the pool yet. Please contact the survey organiser to add questions.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={styles.page}>
       <div style={styles.container}>
@@ -230,7 +266,7 @@ export default function ScreeningPage() {
             autoComplete="off"
           />
 
-          {survey?.questions.map((q) => renderQuestion(q))}
+          {survey.questions.map((q) => renderQuestion(q))}
 
           <button type="submit" style={styles.submitButton}>
             Submit Answers
@@ -298,6 +334,16 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontSize: '0.95rem',
     color: '#2d3748',
+  },
+  textInput: {
+    width: '100%',
+    border: '1px solid #e2e8f0',
+    borderRadius: 8,
+    padding: '0.625rem 0.875rem',
+    fontSize: '0.95rem',
+    color: '#1a1a2e',
+    outline: 'none',
+    boxSizing: 'border-box' as const,
   },
   submitButton: {
     background: '#4361ee',

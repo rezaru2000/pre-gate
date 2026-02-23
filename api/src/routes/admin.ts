@@ -51,9 +51,11 @@ router.post('/login', async (req: Request, res: Response) => {
     return;
   }
 
-  const token = jwt.sign({ adminId: admin.id, email: admin.email }, config.jwtSecret, {
-    expiresIn: config.jwtExpiresIn,
-  });
+  const token = jwt.sign(
+    { adminId: admin.id, email: admin.email },
+    config.jwtSecret,
+    { expiresIn: config.jwtExpiresIn } as jwt.SignOptions
+  );
 
   res.cookie('pregate_token', token, {
     httpOnly: true,
@@ -95,6 +97,7 @@ const CreateSurveySchema = z.object({
   name: z.string().min(1).max(200),
   actualUrl: z.string().url(),
   passMarkPercent: z.number().int().min(1).max(100).default(80),
+  questionsPerSession: z.number().int().min(0).max(50).default(5),
 });
 
 router.post('/surveys', requireAuth, async (req: Request, res: Response) => {
@@ -116,6 +119,7 @@ const UpdateSurveySchema = z.object({
   actualUrl: z.string().url().optional(),
   passMarkPercent: z.number().int().min(1).max(100).optional(),
   isActive: z.boolean().optional(),
+  questionsPerSession: z.number().int().min(0).max(50).optional(),
 });
 
 router.patch('/surveys/:id', requireAuth, async (req: Request, res: Response) => {
@@ -146,8 +150,9 @@ router.get('/surveys/:surveyId/questions', requireAuth, async (req: Request, res
 
 const CreateQuestionSchema = z.object({
   questionText: z.string().min(1),
-  controlType: z.enum(['radio', 'checkbox', 'true_false']),
+  controlType: z.enum(['radio', 'checkbox', 'true_false', 'text']),
   correctAnswers: z.array(z.string()).min(1),
+  options: z.array(z.string()).min(2).max(6).optional().nullable(),
   displayOrder: z.number().int().min(0).default(0),
 });
 
@@ -167,8 +172,9 @@ router.post('/surveys/:surveyId/questions', requireAuth, async (req: Request, re
 
 const UpdateQuestionSchema = z.object({
   questionText: z.string().min(1).optional(),
-  controlType: z.enum(['radio', 'checkbox', 'true_false']).optional(),
+  controlType: z.enum(['radio', 'checkbox', 'true_false', 'text']).optional(),
   correctAnswers: z.array(z.string()).min(1).optional(),
+  options: z.array(z.string()).min(2).max(6).optional().nullable(),
   displayOrder: z.number().int().min(0).optional(),
 });
 

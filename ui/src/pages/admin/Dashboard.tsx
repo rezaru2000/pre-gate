@@ -10,6 +10,7 @@ interface Survey {
   invite_uuid: string;
   is_active: boolean;
   created_at: string;
+  question_count?: number;
 }
 
 export default function AdminDashboard() {
@@ -18,7 +19,12 @@ export default function AdminDashboard() {
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ name: '', actualUrl: '', passMarkPercent: 80 });
+  const [form, setForm] = useState({
+    name: '',
+    actualUrl: '',
+    passMarkPercent: 80,
+    questionsPerSession: 5,
+  });
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
 
@@ -49,7 +55,7 @@ export default function AdminDashboard() {
         throw new Error(data.error ?? 'Failed to create survey');
       }
       setShowCreate(false);
-      setForm({ name: '', actualUrl: '', passMarkPercent: 80 });
+      setForm({ name: '', actualUrl: '', passMarkPercent: 80, questionsPerSession: 5 });
       await fetchSurveys();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create survey');
@@ -87,7 +93,10 @@ export default function AdminDashboard() {
           <div style={styles.modal}>
             <div style={styles.modalCard}>
               <h2 style={styles.modalHeading}>Create Survey</h2>
-              <form onSubmit={handleCreate} style={styles.form}>
+              <p style={styles.createHint}>
+                Each user will see <strong>{form.questionsPerSession}</strong> random questions from the global question pool.
+              </p>
+              <form onSubmit={handleCreate} style={{ ...styles.form, ...styles.createForm }}>
                 <div style={styles.field}>
                   <label style={styles.label}>Survey Name</label>
                   <input
@@ -107,17 +116,31 @@ export default function AdminDashboard() {
                     required
                   />
                 </div>
-                <div style={styles.field}>
-                  <label style={styles.label}>Pass Mark (%)</label>
-                  <input
-                    style={styles.input}
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={form.passMarkPercent}
-                    onChange={(e) => setForm((f) => ({ ...f, passMarkPercent: Number(e.target.value) }))}
-                    required
-                  />
+                <div style={styles.grid2}>
+                  <div style={styles.field}>
+                    <label style={styles.label}>Pass Mark (%)</label>
+                    <input
+                      style={styles.input}
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={form.passMarkPercent}
+                      onChange={(e) => setForm((f) => ({ ...f, passMarkPercent: Number(e.target.value) }))}
+                      required
+                    />
+                  </div>
+                  <div style={styles.field}>
+                    <label style={styles.label}>Questions per session</label>
+                    <input
+                      style={styles.input}
+                      type="number"
+                      min={0}
+                      max={50}
+                      value={form.questionsPerSession}
+                      onChange={(e) => setForm((f) => ({ ...f, questionsPerSession: Number(e.target.value) }))}
+                      title="Number of random questions shown to each user. 0 = show all."
+                    />
+                  </div>
                 </div>
                 {error && <p style={styles.error}>{error}</p>}
                 <div style={styles.buttonRow}>
@@ -242,8 +265,13 @@ const styles: Record<string, React.CSSProperties> = {
   modalCard: { background: '#fff', borderRadius: 12, padding: '2rem', maxWidth: 480, width: '100%' },
   modalHeading: { fontSize: '1.2rem', fontWeight: 700, margin: '0 0 1.5rem', color: '#1a1a2e' },
   form: { display: 'flex', flexDirection: 'column', gap: '1rem' },
+  createForm: {},
+  grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' },
   field: { display: 'flex', flexDirection: 'column', gap: '0.375rem' },
   label: { fontSize: '0.875rem', fontWeight: 500, color: '#4a5568' },
+  hint: { fontSize: '0.75rem', color: '#718096', marginTop: '0.25rem', display: 'block' },
+  createHint: { fontSize: '0.9rem', color: '#4a5568', marginBottom: '1rem' },
+  warning: { fontSize: '0.8rem', color: '#c53030', marginTop: '0.25rem', display: 'block' },
   input: {
     border: '1px solid #e2e8f0',
     borderRadius: 8,

@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import ScreeningPage from './pages/Screening';
 import AdminLoginPage from './pages/admin/Login';
 import AdminDashboard from './pages/admin/Dashboard';
@@ -15,6 +15,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <AuthProvider>
         <Routes>
+          <Route path="/" element={<Navigate to="/admin" replace />} />
           {/* Public */}
           <Route path="/s/:inviteUuid" element={<ScreeningPage />} />
 

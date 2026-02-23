@@ -3,8 +3,8 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import {
   getSurveyByInviteUuid,
-  getPublicQuestionsBySurveyId,
-  getQuestionsBySurveyId,
+  getPublicQuestionsFromPool,
+  getQuestionsByIds,
   createResponse,
 } from '../db/queries';
 import { config } from '../config/env';
@@ -24,9 +24,10 @@ router.get('/:inviteUuid', async (req: Request, res: Response) => {
     return;
   }
 
-  const questions = await getPublicQuestionsBySurveyId(survey.id);
+  const limit = Math.max(1, survey.questions_per_session && survey.questions_per_session > 0 ? survey.questions_per_session : 5);
+  const questions = await getPublicQuestionsFromPool(limit);
 
-  logger.info('survey loaded', { correlationId, surveyId: survey.id });
+  logger.info('survey loaded', { correlationId, surveyId: survey.id, limit, questionCount: questions.length });
 
   res.json({
     surveyId: survey.id,
@@ -78,10 +79,15 @@ router.post('/submit', async (req: Request, res: Response) => {
     return;
   }
 
-  // Load questions with correct answers (admin view)
-  const questions = await getQuestionsBySurveyId(surveyId);
-  if (!questions || questions.length === 0) {
-    res.status(404).json({ error: 'Survey not found.' });
+  const answeredIds = Object.keys(answers).filter((k) => answers[k] !== '' && answers[k] != null);
+  if (answeredIds.length === 0) {
+    res.status(400).json({ error: 'No answers provided.' });
+    return;
+  }
+
+  const questions = await getQuestionsByIds(answeredIds);
+  if (questions.length === 0) {
+    res.status(400).json({ error: 'Invalid submission.' });
     return;
   }
 
@@ -91,12 +97,19 @@ router.post('/submit', async (req: Request, res: Response) => {
     const correctAnswers: string[] = q.correct_answers;
     const userAnswer = answers[q.id];
 
-    if (!userAnswer) continue;
+    if (userAnswer === undefined || userAnswer === null || userAnswer === '') continue;
 
-    const userAnswerArr = Array.isArray(userAnswer) ? userAnswer : [userAnswer];
-    const isCorrect =
-      correctAnswers.length === userAnswerArr.length &&
-      correctAnswers.every((a: string) => userAnswerArr.includes(a));
+    let isCorrect = false;
+    if (q.control_type === 'text') {
+      // Text: case-insensitive trim, match any correct answer
+      const normalized = String(userAnswer).trim().toLowerCase();
+      isCorrect = correctAnswers.some((a: string) => a.trim().toLowerCase() === normalized);
+    } else {
+      const userAnswerArr = Array.isArray(userAnswer) ? userAnswer : [userAnswer];
+      isCorrect =
+        correctAnswers.length === userAnswerArr.length &&
+        correctAnswers.every((a: string) => userAnswerArr.includes(a));
+    }
 
     if (isCorrect) correct++;
   }

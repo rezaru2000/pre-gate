@@ -6,8 +6,11 @@ import logger from '../utils/logger';
 export async function getSurveys() {
   try {
     const { rows } = await pool.query(
-      `SELECT id, name, actual_url, pass_mark_percent, invite_uuid, is_active, created_at, updated_at
-       FROM surveys ORDER BY created_at DESC`
+      `SELECT s.id, s.name, s.actual_url, s.pass_mark_percent, s.invite_uuid, s.is_active, s.questions_per_session, s.created_at, s.updated_at,
+              COALESCE(qc.cnt, 0)::int AS question_count
+       FROM surveys s
+       LEFT JOIN (SELECT survey_id, COUNT(*) AS cnt FROM questions GROUP BY survey_id) qc ON s.id = qc.survey_id
+       ORDER BY s.created_at DESC`
     );
     return rows;
   } catch (err) {
@@ -19,7 +22,7 @@ export async function getSurveys() {
 export async function getSurveyByInviteUuid(inviteUuid: string) {
   try {
     const { rows } = await pool.query(
-      `SELECT id, name, pass_mark_percent, is_active FROM surveys WHERE invite_uuid = $1`,
+      `SELECT id, name, pass_mark_percent, is_active, questions_per_session FROM surveys WHERE invite_uuid = $1`,
       [inviteUuid]
     );
     return rows[0] ?? null;
@@ -32,7 +35,7 @@ export async function getSurveyByInviteUuid(inviteUuid: string) {
 export async function getSurveyById(id: string) {
   try {
     const { rows } = await pool.query(
-      `SELECT id, name, actual_url, pass_mark_percent, invite_uuid, is_active, created_at, updated_at
+      `SELECT id, name, actual_url, pass_mark_percent, invite_uuid, is_active, questions_per_session, created_at, updated_at
        FROM surveys WHERE id = $1`,
       [id]
     );
@@ -47,13 +50,14 @@ export async function createSurvey(data: {
   name: string;
   actualUrl: string;
   passMarkPercent: number;
+  questionsPerSession?: number | null;
 }) {
   try {
     const { rows } = await pool.query(
-      `INSERT INTO surveys (name, actual_url, pass_mark_percent)
-       VALUES ($1, $2, $3)
-       RETURNING id, name, actual_url, pass_mark_percent, invite_uuid, is_active, created_at, updated_at`,
-      [data.name, data.actualUrl, data.passMarkPercent]
+      `INSERT INTO surveys (name, actual_url, pass_mark_percent, questions_per_session)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, name, actual_url, pass_mark_percent, invite_uuid, is_active, questions_per_session, created_at, updated_at`,
+      [data.name, data.actualUrl, data.passMarkPercent, data.questionsPerSession ?? 5]
     );
     return rows[0];
   } catch (err) {
@@ -64,7 +68,13 @@ export async function createSurvey(data: {
 
 export async function updateSurvey(
   id: string,
-  data: { name?: string; actualUrl?: string; passMarkPercent?: number; isActive?: boolean }
+  data: {
+    name?: string;
+    actualUrl?: string;
+    passMarkPercent?: number;
+    isActive?: boolean;
+    questionsPerSession?: number | null;
+  }
 ) {
   try {
     const { rows } = await pool.query(
@@ -73,10 +83,11 @@ export async function updateSurvey(
          actual_url = COALESCE($3, actual_url),
          pass_mark_percent = COALESCE($4, pass_mark_percent),
          is_active = COALESCE($5, is_active),
+         questions_per_session = COALESCE($6, questions_per_session),
          updated_at = now()
        WHERE id = $1
-       RETURNING id, name, actual_url, pass_mark_percent, invite_uuid, is_active, created_at, updated_at`,
-      [id, data.name, data.actualUrl, data.passMarkPercent, data.isActive]
+       RETURNING id, name, actual_url, pass_mark_percent, invite_uuid, is_active, questions_per_session, created_at, updated_at`,
+      [id, data.name, data.actualUrl, data.passMarkPercent, data.isActive, data.questionsPerSession]
     );
     return rows[0] ?? null;
   } catch (err) {
@@ -90,7 +101,7 @@ export async function updateSurvey(
 export async function getQuestionsBySurveyId(surveyId: string) {
   try {
     const { rows } = await pool.query(
-      `SELECT id, survey_id, question_text, control_type, correct_answers, display_order, created_at
+      `SELECT id, survey_id, question_text, control_type, options, correct_answers, display_order, created_at
        FROM questions WHERE survey_id = $1 ORDER BY display_order ASC`,
       [surveyId]
     );
@@ -101,16 +112,32 @@ export async function getQuestionsBySurveyId(surveyId: string) {
   }
 }
 
-export async function getPublicQuestionsBySurveyId(surveyId: string) {
+export async function getPublicQuestionsFromPool(limit: number) {
   try {
+    const safeLimit = Math.max(1, Math.min(limit, 100));
     const { rows } = await pool.query(
-      `SELECT id, question_text, control_type, display_order
-       FROM questions WHERE survey_id = $1 ORDER BY display_order ASC`,
-      [surveyId]
+      `SELECT id, question_text, control_type, options, display_order
+       FROM questions ORDER BY RANDOM() LIMIT $1`,
+      [safeLimit]
     );
     return rows;
   } catch (err) {
-    logger.error('db error: getPublicQuestionsBySurveyId', { message: (err as Error).message });
+    logger.error('db error: getPublicQuestionsFromPool', { message: (err as Error).message });
+    throw err;
+  }
+}
+
+export async function getQuestionsByIds(ids: string[]) {
+  if (ids.length === 0) return [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, survey_id, question_text, control_type, options, correct_answers, display_order, created_at
+       FROM questions WHERE id = ANY($1::uuid[])`,
+      [ids]
+    );
+    return rows;
+  } catch (err) {
+    logger.error('db error: getQuestionsByIds', { message: (err as Error).message });
     throw err;
   }
 }
@@ -120,14 +147,22 @@ export async function createQuestion(data: {
   questionText: string;
   controlType: string;
   correctAnswers: string[];
+  options?: string[] | null;
   displayOrder: number;
 }) {
   try {
     const { rows } = await pool.query(
-      `INSERT INTO questions (survey_id, question_text, control_type, correct_answers, display_order)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, survey_id, question_text, control_type, correct_answers, display_order, created_at`,
-      [data.surveyId, data.questionText, data.controlType, JSON.stringify(data.correctAnswers), data.displayOrder]
+      `INSERT INTO questions (survey_id, question_text, control_type, correct_answers, options, display_order)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, survey_id, question_text, control_type, correct_answers, options, display_order, created_at`,
+      [
+        data.surveyId,
+        data.questionText,
+        data.controlType,
+        JSON.stringify(data.correctAnswers),
+        data.options ? JSON.stringify(data.options) : null,
+        data.displayOrder,
+      ]
     );
     return rows[0];
   } catch (err) {
@@ -138,7 +173,13 @@ export async function createQuestion(data: {
 
 export async function updateQuestion(
   id: string,
-  data: { questionText?: string; controlType?: string; correctAnswers?: string[]; displayOrder?: number }
+  data: {
+    questionText?: string;
+    controlType?: string;
+    correctAnswers?: string[];
+    options?: string[] | null;
+    displayOrder?: number;
+  }
 ) {
   try {
     const { rows } = await pool.query(
@@ -146,14 +187,18 @@ export async function updateQuestion(
          question_text = COALESCE($2, question_text),
          control_type = COALESCE($3, control_type),
          correct_answers = COALESCE($4, correct_answers),
-         display_order = COALESCE($5, display_order)
+         options = CASE WHEN $5 IS NOT NULL THEN $5::jsonb ELSE options END,
+         display_order = COALESCE($6, display_order)
        WHERE id = $1
-       RETURNING id, survey_id, question_text, control_type, correct_answers, display_order, created_at`,
+       RETURNING id, survey_id, question_text, control_type, correct_answers, options, display_order, created_at`,
       [
         id,
         data.questionText,
         data.controlType,
         data.correctAnswers ? JSON.stringify(data.correctAnswers) : null,
+        data.options !== undefined
+          ? (data.options === null ? 'null' : JSON.stringify(data.options))
+          : null,
         data.displayOrder,
       ]
     );

@@ -9,18 +9,20 @@ interface Survey {
   pass_mark_percent: number;
   invite_uuid: string;
   is_active: boolean;
+  questions_per_session?: number | null;
 }
 
 interface Question {
   id: string;
   survey_id: string;
   question_text: string;
-  control_type: 'radio' | 'checkbox' | 'true_false';
+  control_type: 'radio' | 'checkbox' | 'true_false' | 'text';
   correct_answers: string[];
+  options?: string[] | null;
   display_order: number;
 }
 
-const CONTROL_TYPES = ['radio', 'checkbox', 'true_false'] as const;
+const CONTROL_TYPES = ['radio', 'checkbox', 'true_false', 'text'] as const;
 
 export default function AdminSurveyPage() {
   const { surveyId } = useParams<{ surveyId: string }>();
@@ -29,12 +31,23 @@ export default function AdminSurveyPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [surveyForm, setSurveyForm] = useState({ name: '', actualUrl: '', passMarkPercent: 80, isActive: true });
+  const [surveyForm, setSurveyForm] = useState({
+    name: '',
+    actualUrl: '',
+    passMarkPercent: 80,
+    isActive: true,
+    questionsPerSession: 5,
+  });
   const [showAddQuestion, setShowAddQuestion] = useState(false);
-  const [qForm, setQForm] = useState({ questionText: '', controlType: 'radio' as string, correctAnswers: '', displayOrder: 0 });
+  const [qForm, setQForm] = useState({
+    questionText: '',
+    controlType: 'radio' as string,
+    correctAnswers: '',
+    options: '',
+    displayOrder: 0,
+  });
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [error, setError] = useState('');
-
   async function fetchSurvey() {
     const [sRes, qRes] = await Promise.all([
       fetch(`${config.apiBaseUrl}/api/admin/surveys/${surveyId}`, { credentials: 'include' }),
@@ -43,7 +56,13 @@ export default function AdminSurveyPage() {
     const s = await sRes.json();
     const q = await qRes.json();
     setSurvey(s);
-    setSurveyForm({ name: s.name, actualUrl: s.actual_url, passMarkPercent: s.pass_mark_percent, isActive: s.is_active });
+    setSurveyForm({
+      name: s.name,
+      actualUrl: s.actual_url,
+      passMarkPercent: s.pass_mark_percent,
+      isActive: s.is_active,
+      questionsPerSession: s.questions_per_session ?? 5,
+    });
     setQuestions(q);
     setLoading(false);
   }
@@ -81,16 +100,27 @@ export default function AdminSurveyPage() {
       setError('At least one correct answer is required.');
       return;
     }
+    const options =
+      qForm.controlType !== 'text'
+        ? qForm.options
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : null;
+    if (qForm.controlType !== 'text' && (!options || options.length < 2 || options.length > 6)) {
+      setError('Options: 2–6 comma-separated values required for radio/checkbox/true_false.');
+      return;
+    }
     try {
       const res = await fetch(`${config.apiBaseUrl}/api/admin/surveys/${surveyId}/questions`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...qForm, correctAnswers }),
+        body: JSON.stringify({ ...qForm, correctAnswers, options }),
       });
       if (!res.ok) throw new Error('Failed to add question');
       setShowAddQuestion(false);
-      setQForm({ questionText: '', controlType: 'radio', correctAnswers: '', displayOrder: 0 });
+      setQForm({ questionText: '', controlType: 'radio', correctAnswers: '', options: '', displayOrder: 0 });
       await fetchSurvey();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed');
@@ -102,12 +132,23 @@ export default function AdminSurveyPage() {
     if (!editingQuestion) return;
     setError('');
     const correctAnswers = qForm.correctAnswers.split(',').map((s) => s.trim()).filter(Boolean);
+    const options =
+      qForm.controlType !== 'text'
+        ? qForm.options
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : null;
+    if (qForm.controlType !== 'text' && (!options || options.length < 2 || options.length > 6)) {
+      setError('Options: 2–6 comma-separated values required for radio/checkbox/true_false.');
+      return;
+    }
     try {
       const res = await fetch(`${config.apiBaseUrl}/api/admin/questions/${editingQuestion.id}`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...qForm, correctAnswers }),
+        body: JSON.stringify({ ...qForm, correctAnswers, options }),
       });
       if (!res.ok) throw new Error('Failed to update question');
       setEditingQuestion(null);
@@ -132,6 +173,7 @@ export default function AdminSurveyPage() {
       questionText: q.question_text,
       controlType: q.control_type,
       correctAnswers: q.correct_answers.join(', '),
+      options: q.options?.join(', ') ?? '',
       displayOrder: q.display_order,
     });
   }
@@ -165,6 +207,15 @@ export default function AdminSurveyPage() {
                   onChange={(e) => setSurveyForm((f) => ({ ...f, passMarkPercent: Number(e.target.value) }))} required />
               </div>
             </div>
+            <div style={styles.grid2}>
+              <div style={styles.field}>
+                <label style={styles.label}>Questions per session (0 = all)</label>
+                <input style={styles.input} type="number" min={0} max={50}
+                  value={surveyForm.questionsPerSession}
+                  onChange={(e) => setSurveyForm((f) => ({ ...f, questionsPerSession: Number(e.target.value) }))}
+                  title="Number of random questions shown to each user. 0 = show all." />
+              </div>
+            </div>
             <div style={styles.field}>
               <label style={styles.label}>Actual Survey URL</label>
               <input style={styles.input} type="url" value={surveyForm.actualUrl}
@@ -194,6 +245,12 @@ export default function AdminSurveyPage() {
             <button onClick={() => setShowAddQuestion(true)} style={styles.primaryButton}>+ Add Question</button>
           </div>
 
+          {questions.length === 0 && (
+            <div style={styles.noQuestionsBanner}>
+              <strong>No questions in this survey.</strong> Add questions below — they will be added to the global pool used by all surveys.
+            </div>
+          )}
+
           {(showAddQuestion || editingQuestion) && (
             <div style={styles.questionForm}>
               <h3 style={styles.subHeading}>{editingQuestion ? 'Edit Question' : 'New Question'}</h3>
@@ -217,11 +274,23 @@ export default function AdminSurveyPage() {
                       onChange={(e) => setQForm((f) => ({ ...f, displayOrder: Number(e.target.value) }))} />
                   </div>
                 </div>
+                {qForm.controlType !== 'text' && (
+                  <div style={styles.field}>
+                    <label style={styles.label}>Options (2–6 comma-separated, these are the labels shown)</label>
+                    <input style={styles.input} value={qForm.options}
+                      onChange={(e) => setQForm((f) => ({ ...f, options: e.target.value }))}
+                      placeholder="e.g. 2, 4, 6, 8  or  Red, Blue, Green"
+                      required={qForm.controlType !== 'text'} />
+                  </div>
+                )}
                 <div style={styles.field}>
-                  <label style={styles.label}>Correct Answers (comma-separated)</label>
+                  <label style={styles.label}>
+                    Correct Answers (comma-separated)
+                    {qForm.controlType === 'text' && ' — for text: e.g. Earth, earth'}
+                  </label>
                   <input style={styles.input} value={qForm.correctAnswers}
                     onChange={(e) => setQForm((f) => ({ ...f, correctAnswers: e.target.value }))}
-                    placeholder="e.g. True  or  Option A, Option C"
+                    placeholder={qForm.controlType === 'text' ? 'e.g. Earth, earth' : 'e.g. 2  or  Red, Blue'}
                     required />
                 </div>
                 <div style={styles.buttonRow}>
@@ -243,7 +312,10 @@ export default function AdminSurveyPage() {
                     <span style={styles.controlTypeBadge}>{q.control_type}</span>
                   </div>
                   <p style={styles.questionText}>{q.question_text}</p>
-                  <p style={styles.answers}>Correct: {q.correct_answers.join(', ')}</p>
+                  <p style={styles.answers}>
+                    {q.options?.length ? `Options: ${q.options.join(', ')} | ` : ''}
+                    Correct: {q.correct_answers.join(', ')}
+                  </p>
                   <div style={styles.questionActions}>
                     <button onClick={() => startEdit(q)} style={styles.linkButton}>Edit</button>
                     <button onClick={() => handleDeleteQuestion(q.id)} style={{ ...styles.linkButton, color: '#e53e3e' }}>Delete</button>
@@ -346,6 +418,15 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: '1rem',
   },
   muted: { color: '#718096', fontSize: '0.9rem' },
+  noQuestionsBanner: {
+    background: '#fef3c7',
+    color: '#92400e',
+    padding: '0.875rem 1rem',
+    borderRadius: 8,
+    marginBottom: '1rem',
+    fontSize: '0.9rem',
+    border: '1px solid #fcd34d',
+  },
   questionForm: { background: '#f7fafc', borderRadius: 10, padding: '1.25rem', marginBottom: '1rem', border: '1px solid #e2e8f0' },
   questionList: { display: 'flex', flexDirection: 'column', gap: '0.75rem' },
   questionCard: { border: '1px solid #e2e8f0', borderRadius: 8, padding: '1rem' },
