@@ -108,8 +108,8 @@ jobs:
 
           # Open firewall for runner IP
           az postgres flexible-server firewall-rule create \
-            --resource-group "$RG" --name "$SERVER" \
-            --rule-name "github-actions-runner" \
+            --resource-group "$RG" --server-name "$SERVER" \
+            --name "github-actions-runner" \
             --start-ip-address "$RUNNER_IP" --end-ip-address "$RUNNER_IP"
 
           # Run migrations — always clean up firewall rule afterwards
@@ -118,8 +118,8 @@ jobs:
           ./db/migrate.sh; EXIT_CODE=$?
 
           az postgres flexible-server firewall-rule delete \
-            --resource-group "$RG" --name "$SERVER" \
-            --rule-name "github-actions-runner" --yes 2>/dev/null || true
+            --resource-group "$RG" --server-name "$SERVER" \
+            --name "github-actions-runner" --yes 2>/dev/null || true
 
           exit $EXIT_CODE
 
