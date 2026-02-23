@@ -16,5 +16,6 @@ resource staticWebApp 'Microsoft.Web/staticSites@2023-01-01' = {
 }
 
 output url string = 'https://${staticWebApp.properties.defaultHostname}'
+#disable-next-line outputs-should-not-contain-secrets
 output deploymentToken string = staticWebApp.listSecrets().properties.apiKey
 output staticWebAppName string = staticWebApp.name

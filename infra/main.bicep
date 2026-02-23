@@ -47,7 +47,6 @@ module containerApp 'modules/containerapp.bicep' = {
   params: {
     environment: environment
     location: location
-    logAnalyticsWorkspaceId: logAnalytics.outputs.workspaceId
     logAnalyticsCustomerId: logAnalytics.outputs.customerId
     logAnalyticsSharedKey: logAnalytics.outputs.sharedKey
     containerImage: containerImage

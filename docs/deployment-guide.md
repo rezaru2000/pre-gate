@@ -262,6 +262,8 @@ az keyvault secret set \
 
 > **Why different secrets per environment?** If one environment is compromised, the others stay safe.
 
+> **Deployment fails with "jwt-secret was not found"?** Add the `jwt-secret` to your Key Vault before running the infrastructure deployment. Run the `az keyvault secret set` commands above for the environment you're deploying (dev, uat, or prod).
+
 ---
 
 ## Step 6 — Update the Parameter Files

@@ -1,6 +1,5 @@
 param environment string
 param location string = resourceGroup().location
-param logAnalyticsWorkspaceId string
 param logAnalyticsCustomerId string
 @secure()
 param logAnalyticsSharedKey string

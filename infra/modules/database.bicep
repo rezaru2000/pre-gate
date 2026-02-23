@@ -43,7 +43,7 @@ resource firewallAllowAzure 'Microsoft.DBforPostgreSQL/flexibleServers/firewallR
 
 resource database 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2023-06-01-preview' = {
   parent: postgres
-  name: 'pregate_${environment}'
+  name: 'pregatedb'
   properties: {
     charset: 'UTF8'
     collation: 'en_US.UTF-8'
