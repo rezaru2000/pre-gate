@@ -57,10 +57,14 @@ router.post('/login', async (req: Request, res: Response) => {
     { expiresIn: config.jwtExpiresIn } as jwt.SignOptions
   );
 
+  // SameSite=None+Secure is required for cross-origin cookie sending
+  // (frontend on azurestaticapps.net, API on azurecontainerapps.io)
+  // SameSite=Strict is safe for local dev where both run on localhost
+  const crossOrigin = config.nodeEnv !== 'development';
   res.cookie('pregate_token', token, {
     httpOnly: true,
-    secure: config.nodeEnv === 'production',
-    sameSite: 'strict',
+    secure: crossOrigin,
+    sameSite: crossOrigin ? 'none' : 'strict',
     maxAge: 8 * 60 * 60 * 1000,
   });
 
@@ -69,7 +73,12 @@ router.post('/login', async (req: Request, res: Response) => {
 });
 
 router.post('/logout', (_req: Request, res: Response) => {
-  res.clearCookie('pregate_token');
+  const crossOrigin = config.nodeEnv !== 'development';
+  res.clearCookie('pregate_token', {
+    httpOnly: true,
+    secure: crossOrigin,
+    sameSite: crossOrigin ? 'none' : 'strict',
+  });
   res.json({ success: true });
 });
 
