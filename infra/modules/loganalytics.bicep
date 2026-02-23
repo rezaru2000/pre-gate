@@ -19,4 +19,6 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
 
 output workspaceId string = logAnalytics.id
 output customerId string = logAnalytics.properties.customerId
+// Required for Container App Log Analytics integration
+#disable-next-line outputs-should-not-contain-secrets
 output sharedKey string = logAnalytics.listKeys().primarySharedKey

@@ -174,6 +174,16 @@ az keyvault create \
   --location australiaeast
 ```
 
+### Enable template deployment (required for Bicep)
+
+ARM must read Key Vault secrets during deployment. Enable this on each vault:
+
+```bash
+az keyvault update --name kv-pregate-dev --enabled-for-template-deployment true
+az keyvault update --name kv-pregate-uat --enabled-for-template-deployment true
+az keyvault update --name kv-pregate-prod --enabled-for-template-deployment true
+```
+
 ### Grant yourself permission to set secrets
 
 Key Vault uses RBAC. Grant your user the **Key Vault Secrets Officer** role on each vault (run once per vault):
