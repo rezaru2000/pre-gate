@@ -5,14 +5,13 @@ import logger from '../utils/logger';
 
 export async function getSurveys() {
   try {
-    const { rows } = await pool.query(
-      `SELECT s.id, s.name, s.actual_url, s.pass_mark_percent, s.invite_uuid, s.is_active, s.questions_per_session, s.created_at, s.updated_at,
-              COALESCE(qc.cnt, 0)::int AS question_count
-       FROM surveys s
-       LEFT JOIN (SELECT survey_id, COUNT(*) AS cnt FROM questions GROUP BY survey_id) qc ON s.id = qc.survey_id
-       ORDER BY s.created_at DESC`
+    const { rows: surveyRows } = await pool.query(
+      `SELECT id, name, actual_url, pass_mark_percent, invite_uuid, is_active, questions_per_session, created_at, updated_at
+       FROM surveys ORDER BY created_at DESC`
     );
-    return rows;
+    const { rows: [{ cnt }] } = await pool.query<{ cnt: number }>(`SELECT COUNT(*)::int AS cnt FROM questions`);
+    const questionCount = cnt ?? 0;
+    return surveyRows.map((s) => ({ ...s, question_count: questionCount }));
   } catch (err) {
     logger.error('db error: getSurveys', { message: (err as Error).message });
     throw err;
@@ -98,16 +97,15 @@ export async function updateSurvey(
 
 // ─── Questions ────────────────────────────────────────────────────────────────
 
-export async function getQuestionsBySurveyId(surveyId: string) {
+export async function getQuestions() {
   try {
     const { rows } = await pool.query(
-      `SELECT id, survey_id, question_text, control_type, options, correct_answers, display_order, created_at
-       FROM questions WHERE survey_id = $1 ORDER BY display_order ASC`,
-      [surveyId]
+      `SELECT id, question_text, control_type, options, correct_answers, display_order, created_at
+       FROM questions ORDER BY display_order ASC`
     );
     return rows;
   } catch (err) {
-    logger.error('db error: getQuestionsBySurveyId', { message: (err as Error).message });
+    logger.error('db error: getQuestions', { message: (err as Error).message });
     throw err;
   }
 }
@@ -131,7 +129,7 @@ export async function getQuestionsByIds(ids: string[]) {
   if (ids.length === 0) return [];
   try {
     const { rows } = await pool.query(
-      `SELECT id, survey_id, question_text, control_type, options, correct_answers, display_order, created_at
+      `SELECT id, question_text, control_type, options, correct_answers, display_order, created_at
        FROM questions WHERE id = ANY($1::uuid[])`,
       [ids]
     );
@@ -143,7 +141,6 @@ export async function getQuestionsByIds(ids: string[]) {
 }
 
 export async function createQuestion(data: {
-  surveyId: string;
   questionText: string;
   controlType: string;
   correctAnswers: string[];
@@ -152,11 +149,10 @@ export async function createQuestion(data: {
 }) {
   try {
     const { rows } = await pool.query(
-      `INSERT INTO questions (survey_id, question_text, control_type, correct_answers, options, display_order)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, survey_id, question_text, control_type, correct_answers, options, display_order, created_at`,
+      `INSERT INTO questions (question_text, control_type, correct_answers, options, display_order)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, question_text, control_type, correct_answers, options, display_order, created_at`,
       [
-        data.surveyId,
         data.questionText,
         data.controlType,
         JSON.stringify(data.correctAnswers),
@@ -190,7 +186,7 @@ export async function updateQuestion(
          options = CASE WHEN $5 IS NOT NULL THEN $5::jsonb ELSE options END,
          display_order = COALESCE($6, display_order)
        WHERE id = $1
-       RETURNING id, survey_id, question_text, control_type, correct_answers, options, display_order, created_at`,
+       RETURNING id, question_text, control_type, correct_answers, options, display_order, created_at`,
       [
         id,
         data.questionText,

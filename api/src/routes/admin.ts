@@ -9,7 +9,7 @@ import {
   getSurveyById,
   createSurvey,
   updateSurvey,
-  getQuestionsBySurveyId,
+  getQuestions,
   createQuestion,
   updateQuestion,
   deleteQuestion,
@@ -143,8 +143,8 @@ router.patch('/surveys/:id', requireAuth, async (req: Request, res: Response) =>
 
 // ─── Questions ────────────────────────────────────────────────────────────────
 
-router.get('/surveys/:surveyId/questions', requireAuth, async (req: Request, res: Response) => {
-  const questions = await getQuestionsBySurveyId(req.params['surveyId']!);
+router.get('/surveys/:surveyId/questions', requireAuth, async (_req: Request, res: Response) => {
+  const questions = await getQuestions();
   res.json(questions);
 });
 
@@ -165,8 +165,8 @@ router.post('/surveys/:surveyId/questions', requireAuth, async (req: Request, re
     return;
   }
 
-  const question = await createQuestion({ surveyId: req.params['surveyId']!, ...parsed.data });
-  logger.info('question added', { correlationId, questionId: question.id, surveyId: req.params['surveyId'], admin: res.locals['admin']?.email });
+  const question = await createQuestion(parsed.data);
+  logger.info('question added', { correlationId, questionId: question.id, admin: res.locals['admin']?.email });
   res.status(201).json(question);
 });
 

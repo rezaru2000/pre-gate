@@ -2,7 +2,8 @@ const VITE_ENV = import.meta.env['VITE_ENV'] ?? 'development';
 
 const envConfig = {
   development: {
-    apiBaseUrl: import.meta.env['VITE_API_BASE_URL'] ?? 'http://localhost:3000',
+    // Use empty string to hit Vite proxy (avoids CORS, same-origin requests)
+    apiBaseUrl: import.meta.env['VITE_API_BASE_URL'] ?? '',
     environment: 'development',
   },
   uat: {

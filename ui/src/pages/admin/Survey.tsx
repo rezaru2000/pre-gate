@@ -14,7 +14,6 @@ interface Survey {
 
 interface Question {
   id: string;
-  survey_id: string;
   question_text: string;
   control_type: 'radio' | 'checkbox' | 'true_false' | 'text';
   correct_answers: string[];
@@ -247,7 +246,7 @@ export default function AdminSurveyPage() {
 
           {questions.length === 0 && (
             <div style={styles.noQuestionsBanner}>
-              <strong>No questions in this survey.</strong> Add questions below — they will be added to the global pool used by all surveys.
+              <strong>No questions in the pool yet.</strong> Add questions below — they will be used by all surveys.
             </div>
           )}
 

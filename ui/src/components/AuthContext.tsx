@@ -24,18 +24,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function login(email: string, password: string) {
-    const res = await fetch(`${config.apiBaseUrl}/api/admin/login`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    if (!res.ok) {
+    try {
+      const res = await fetch(`${config.apiBaseUrl}/api/admin/login`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? 'Login failed');
+      }
       const data = await res.json();
-      throw new Error(data.error ?? 'Login failed');
+      setState({ email: data.email, loading: false });
+    } catch (err) {
+      if (err instanceof TypeError && err.message === 'Failed to fetch') {
+        throw new Error('Cannot reach API. Ensure the API is running (e.g. docker compose up or npm run dev in api/).');
+      }
+      throw err;
     }
-    const data = await res.json();
-    setState({ email: data.email, loading: false });
   }
 
   async function logout() {

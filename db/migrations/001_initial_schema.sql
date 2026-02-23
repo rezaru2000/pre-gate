@@ -65,6 +65,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS surveys_updated_at ON surveys;
 CREATE TRIGGER surveys_updated_at
   BEFORE UPDATE ON surveys
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
