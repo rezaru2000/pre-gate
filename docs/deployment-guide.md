@@ -318,6 +318,49 @@ This outputs a JSON block like:
 > Instead of your personal login, GitHub Actions uses this account to talk to Azure.
 > The `Contributor` role lets it create and update resources.
 
+### Grant the Service Principal access to Key Vault secrets
+
+`Contributor` role does NOT include Key Vault secret access — Key Vault has its own separate permission system.
+You must explicitly grant the SP permission to read secrets from each Key Vault.
+
+First, find the SP's Object ID (the `oid` in the JSON output, or look it up):
+
+```bash
+SP_OID=$(az ad sp list --display-name "sp-pregate-github-actions" --query "[0].id" -o tsv)
+echo $SP_OID   # copy this value
+```
+
+Then grant Key Vault Secrets User access for each environment:
+
+```bash
+SUB_ID=$(az account show --query id -o tsv)
+
+# Dev
+az role assignment create \
+  --role "Key Vault Secrets User" \
+  --assignee "$SP_OID" \
+  --scope "/subscriptions/$SUB_ID/resourceGroups/rg-pregate-dev/providers/Microsoft.KeyVault/vaults/kv-pregate-dev"
+
+# UAT
+az role assignment create \
+  --role "Key Vault Secrets User" \
+  --assignee "$SP_OID" \
+  --scope "/subscriptions/$SUB_ID/resourceGroups/rg-pregate-uat/providers/Microsoft.KeyVault/vaults/kv-pregate-uat"
+
+# Prod
+az role assignment create \
+  --role "Key Vault Secrets User" \
+  --assignee "$SP_OID" \
+  --scope "/subscriptions/$SUB_ID/resourceGroups/rg-pregate-prod/providers/Microsoft.KeyVault/vaults/kv-pregate-prod"
+```
+
+> **Why is this separate?** Azure Key Vault uses RBAC independently from other Azure resources.
+> Even an account that can create and delete everything else needs explicit permission to read secrets.
+> This is a security feature — it prevents accidental or malicious secret exposure.
+
+> **After running these commands**, wait 1–2 minutes before triggering the workflow. Role changes
+> can take a moment to propagate across Azure's systems.
+
 ---
 
 ## Step 8 — Add Secrets to GitHub
