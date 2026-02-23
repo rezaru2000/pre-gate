@@ -1,12 +1,45 @@
+# ── Dependencies ────────────────────────────────────────────────────────────────
 node_modules/
+
+# ── Build output ─────────────────────────────────────────────────────────────────
 dist/
 build/
+*.tsbuildinfo
+
+# ── Environment files ────────────────────────────────────────────────────────────
+# .env.example is intentionally NOT ignored — it is a safe template for other devs
 .env
+.env.local
 .env.development
 .env.uat
 .env.production
+
+# ── Logs ────────────────────────────────────────────────────────────────────────
 logs/
 *.log
-.DS_Store
-*.tsbuildinfo
+
+# ── Test coverage ────────────────────────────────────────────────────────────────
 coverage/
+
+# ── Vite cache ───────────────────────────────────────────────────────────────────
+.vite/
+vite.config.ts.timestamp*
+
+# ── macOS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+
+# ── Windows ──────────────────────────────────────────────────────────────────────
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ── Editor ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Binary / office files ────────────────────────────────────────────────────────
+*.docx
+*.xlsx
+*.pdf
