@@ -14,6 +14,10 @@ build/
 .env.uat
 .env.production
 
+# ── Azure credentials (never commit) ────────────────────────────────────────────
+azure-credentials*.json
+*service-principal*.json
+
 # ── Logs ────────────────────────────────────────────────────────────────────────
 logs/
 *.log

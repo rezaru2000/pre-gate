@@ -320,12 +320,40 @@ Add these secrets one by one:
 
 | Secret name                       | Value                                      |
 | --------------------------------- | ------------------------------------------ |
-| `AZURE_CREDENTIALS`               | The entire JSON block from Step 7          |
-| `AZURE_SUBSCRIPTION_ID`           | Your Subscription ID from Step 2c          |
+| `AZURE_CREDENTIALS`               | The entire JSON block from Step 7 (or use the 4 below) |
+| `AZURE_CLIENT_ID`                 | From JSON `clientId` — use if AZURE_CREDENTIALS fails |
+| `AZURE_CLIENT_SECRET`             | From JSON `clientSecret`                   |
+| `AZURE_TENANT_ID`                 | From JSON `tenantId`                       |
+| `AZURE_SUBSCRIPTION_ID`           | Your Subscription ID from Step 2c (or JSON `subscriptionId`) |
 | `AZURE_STATIC_WEB_APP_TOKEN_DEV`  | Leave blank for now — fill in after Step 9 |
 | `AZURE_STATIC_WEB_APP_TOKEN_UAT`  | Leave blank for now — fill in after Step 9 |
 | `AZURE_STATIC_WEB_APP_TOKEN_PROD` | Leave blank for now — fill in after Step 9 |
 
+### Troubleshooting: "Not all values are present" / "client-id and tenant-id"
+
+If the workflow fails with `Login failed... Ensure 'client-id' and 'tenant-id' are supplied`:
+
+1. **Regenerate the service principal** and copy the output again:
+   ```bash
+   az ad sp create-for-rbac \
+     --name "sp-pregate-github-actions" \
+     --role Contributor \
+     --scopes /subscriptions/YOUR_SUBSCRIPTION_ID \
+     --sdk-auth
+   ```
+
+2. **Update the `AZURE_CREDENTIALS` secret** in GitHub: Settings → Secrets → Actions → edit `AZURE_CREDENTIALS`.
+
+3. **Paste the full JSON** — all four fields must be present: `clientId`, `clientSecret`, `subscriptionId`, `tenantId`. No extra spaces or line breaks. The JSON should look like:
+   ```json
+   {"clientId":"xxx","clientSecret":"xxx","subscriptionId":"xxx","tenantId":"xxx"}
+   ```
+
+4. **Alternative: use separate secrets** — instead of `AZURE_CREDENTIALS`, add these four secrets and the workflows will use them:
+   - `AZURE_CLIENT_ID` (from the JSON `clientId`)
+   - `AZURE_CLIENT_SECRET` (from the JSON `clientSecret`)
+   - `AZURE_TENANT_ID` (from the JSON `tenantId`)
+   - `AZURE_SUBSCRIPTION_ID` (from the JSON `subscriptionId`)
 
 ---
 
