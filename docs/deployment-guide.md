@@ -113,7 +113,7 @@ A **Resource Group** is a folder in Azure that holds related resources.
 Create one per environment:
 
 ```bash
-# Replace YOUR_34dbcaff-2d71-4dcd-9729-2bed217c6fef with the value from Step 2c
+# Replace YOUR_AZURE_SUBSCRIPTION_ID with the value from Step 2c
 # Replace australiaeast with your preferred Azure region
 
 az group create --name rg-pregate-dev  --location australiaeast
@@ -154,7 +154,7 @@ When the output shows `Registered`, proceed to the next step.
 Each environment gets its own Key Vault.
 
 ```bash
-# Replace YOUR_34dbcaff-2d71-4dcd-9729-2bed217c6fef everywhere below
+# Replace YOUR_AZURE_SUBSCRIPTION_ID everywhere below
 
 # Dev
 az keyvault create \
@@ -260,7 +260,7 @@ az keyvault secret set \
 The Bicep parameter files in `infra/` reference your Key Vault by Subscription ID.
 You need to replace the placeholder with your real Subscription ID.
 
-Open each of these three files and replace `34dbcaff-2d71-4dcd-9729-2bed217c6fef` with your actual Subscription ID from Step 2c:
+Open each of these three files and replace `AZURE_SUBSCRIPTION_ID` with your actual Subscription ID from Step 2c:
 
 - [infra/parameters.dev.json](../infra/parameters.dev.json)
 - [infra/parameters.uat.json](../infra/parameters.uat.json)
@@ -269,10 +269,10 @@ Open each of these three files and replace `34dbcaff-2d71-4dcd-9729-2bed217c6fef
 In each file, you will see lines like:
 
 ```json
-"id": "/subscriptions/34dbcaff-2d71-4dcd-9729-2bed217c6fef/resourceGroups/rg-pregate-dev/..."
+"id": "/subscriptions/AZURE_SUBSCRIPTION_ID/resourceGroups/rg-pregate-dev/..."
 ```
 
-Replace `34dbcaff-2d71-4dcd-9729-2bed217c6fef` with your real value. Do NOT change anything else.
+Replace `AZURE_SUBSCRIPTION_ID` with your real value. Do NOT change anything else.
 
 ---
 
@@ -285,7 +285,7 @@ A **Service Principal** is a special Azure account created just for automation.
 az ad sp create-for-rbac \
   --name "sp-pregate-github-actions" \
   --role Contributor \
-  --scopes /subscriptions/YOUR_34dbcaff-2d71-4dcd-9729-2bed217c6fef \
+  --scopes /subscriptions/YOUR_AZURE_SUBSCRIPTION_ID \
   --sdk-auth
 ```
 
@@ -321,7 +321,7 @@ Add these secrets one by one:
 | Secret name                       | Value                                      |
 | --------------------------------- | ------------------------------------------ |
 | `AZURE_CREDENTIALS`               | The entire JSON block from Step 7          |
-| `AZURE_34dbcaff-2d71-4dcd-9729-2bed217c6fef`           | Your Subscription ID from Step 2c          |
+| `AZURE_SUBSCRIPTION_ID`           | Your Subscription ID from Step 2c          |
 | `AZURE_STATIC_WEB_APP_TOKEN_DEV`  | Leave blank for now — fill in after Step 9 |
 | `AZURE_STATIC_WEB_APP_TOKEN_UAT`  | Leave blank for now — fill in after Step 9 |
 | `AZURE_STATIC_WEB_APP_TOKEN_PROD` | Leave blank for now — fill in after Step 9 |
@@ -503,6 +503,6 @@ Or in the Azure portal: go to **Container Apps** → your app → **Log stream**
 - Think of Bicep like a config file that tells Azure what to build
 
 > **Tip:** You do not need to understand Bicep to use it. The files are already written —
-> just replace `34dbcaff-2d71-4dcd-9729-2bed217c6fef` and run the deployment commands. Learn Bicep later when you
+> just replace `AZURE_SUBSCRIPTION_ID` and run the deployment commands. Learn Bicep later when you
 > want to change the infrastructure.
 
