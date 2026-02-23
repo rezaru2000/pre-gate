@@ -29,12 +29,59 @@ jobs:
           ENV="${{ github.event.inputs.environment }}"
           case "$ENV" in
             prod) echo "vite_env=production" >> $GITHUB_OUTPUT
-                  echo "deployment_token_secret=AZURE_STATIC_WEB_APP_TOKEN_PROD" >> $GITHUB_OUTPUT ;;
+                  echo "deployment_token_secret=AZURE_STATIC_WEB_APP_TOKEN_PROD" >> $GITHUB_OUTPUT
+                  echo "container_app=ca-pregate-prod" >> $GITHUB_OUTPUT
+                  echo "resource_group=rg-pregate-prod" >> $GITHUB_OUTPUT ;;
             uat)  echo "vite_env=uat" >> $GITHUB_OUTPUT
-                  echo "deployment_token_secret=AZURE_STATIC_WEB_APP_TOKEN_UAT" >> $GITHUB_OUTPUT ;;
-            *)    echo "vite_env=development" >> $GITHUB_OUTPUT
-                  echo "deployment_token_secret=AZURE_STATIC_WEB_APP_TOKEN_DEV" >> $GITHUB_OUTPUT ;;
+                  echo "deployment_token_secret=AZURE_STATIC_WEB_APP_TOKEN_UAT" >> $GITHUB_OUTPUT
+                  echo "container_app=ca-pregate-uat" >> $GITHUB_OUTPUT
+                  echo "resource_group=rg-pregate-uat" >> $GITHUB_OUTPUT ;;
+            *)    echo "vite_env=dev" >> $GITHUB_OUTPUT
+                  echo "deployment_token_secret=AZURE_STATIC_WEB_APP_TOKEN_DEV" >> $GITHUB_OUTPUT
+                  echo "container_app=ca-pregate-dev" >> $GITHUB_OUTPUT
+                  echo "resource_group=rg-pregate-dev" >> $GITHUB_OUTPUT ;;
           esac
+
+      - name: Prepare Azure credentials
+        id: azcreds
+        run: |
+          if [ -n "$AZURE_CLIENT_ID" ]; then
+            CREDS=$(jq -n \
+              --arg cid "$AZURE_CLIENT_ID" \
+              --arg csec "$AZURE_CLIENT_SECRET" \
+              --arg sid "$AZURE_SUBSCRIPTION_ID" \
+              --arg tid "$AZURE_TENANT_ID" \
+              '{clientId:$cid,clientSecret:$csec,subscriptionId:$sid,tenantId:$tid}')
+          else
+            CREDS="$AZURE_CREDENTIALS"
+          fi
+          if [ -z "$CREDS" ] || [ "$CREDS" = "null" ]; then
+            echo "::error::Set AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID OR AZURE_CREDENTIALS in GitHub Secrets."
+            exit 1
+          fi
+          echo "creds<<EOF" >> $GITHUB_OUTPUT
+          echo "$CREDS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Azure login
+        uses: azure/login@v1
+        with:
+          creds: ${{ steps.azcreds.outputs.creds }}
+
+      - name: Get API URL from Container App
+        id: api
+        run: |
+          FQDN=$(az containerapp show \
+            --name ${{ steps.env.outputs.container_app }} \
+            --resource-group ${{ steps.env.outputs.resource_group }} \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+          echo "api_base_url=https://${FQDN}" >> $GITHUB_OUTPUT
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -52,6 +99,7 @@ jobs:
         working-directory: ui
         env:
           VITE_ENV: ${{ steps.env.outputs.vite_env }}
+          VITE_API_BASE_URL: ${{ steps.api.outputs.api_base_url }}
 
       - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1

@@ -6,6 +6,10 @@ const envConfig = {
     apiBaseUrl: import.meta.env['VITE_API_BASE_URL'] ?? '',
     environment: 'development',
   },
+  dev: {
+    apiBaseUrl: import.meta.env['VITE_API_BASE_URL'] ?? '',
+    environment: 'dev',
+  },
   uat: {
     apiBaseUrl: import.meta.env['VITE_API_BASE_URL'] ?? 'https://ca-pregate-uat.azurecontainerapps.io',
     environment: 'uat',

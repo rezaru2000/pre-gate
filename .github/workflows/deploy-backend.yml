@@ -125,7 +125,14 @@ jobs:
 
       - name: Update Container App
         run: |
+          UPDATE_ARGS=""
+          if [ -n "$CORS_ORIGINS" ]; then
+            UPDATE_ARGS="--set-env-vars CORS_ORIGINS=${CORS_ORIGINS}"
+          fi
           az containerapp update \
             --name ${{ steps.env.outputs.container_app }} \
             --resource-group ${{ steps.env.outputs.resource_group }} \
-            --image "${IMAGE}"
+            --image "${IMAGE}" \
+            $UPDATE_ARGS
+        env:
+          CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}

@@ -340,6 +340,7 @@ Add these secrets to **each environment** (dev, uat, prod):
 | `AZURE_CLIENT_SECRET`             | From JSON `clientSecret`                   |
 | `AZURE_TENANT_ID`                 | From JSON `tenantId`                       |
 | `AZURE_SUBSCRIPTION_ID`           | Your Subscription ID from Step 2c (or JSON `subscriptionId`) |
+| `CORS_ORIGINS`                    | Leave blank for now — fill in after Step 9 (see below) |
 | `AZURE_STATIC_WEB_APP_TOKEN_DEV`  | Leave blank for now — fill in after Step 9 |
 | `AZURE_STATIC_WEB_APP_TOKEN_UAT`  | Leave blank for now — fill in after Step 9 |
 | `AZURE_STATIC_WEB_APP_TOKEN_PROD` | Leave blank for now — fill in after Step 9 |
@@ -446,11 +447,39 @@ az staticwebapp secrets list --name aswa-pregate-uat --query "properties.apiKey"
 az staticwebapp secrets list --name aswa-pregate-prod --query "properties.apiKey" -o tsv
 ```
 
-Go back to GitHub → **Settings** → **Secrets** and fill in:
+Go back to GitHub → **Settings** → **Environments** → your environment → **Environment secrets** and fill in:
 
 - `AZURE_STATIC_WEB_APP_TOKEN_DEV` with the dev token
 - `AZURE_STATIC_WEB_APP_TOKEN_UAT` with the uat token
 - `AZURE_STATIC_WEB_APP_TOKEN_PROD` with the prod token
+
+### Set the CORS_ORIGINS secret (allows the UI to talk to the API)
+
+The API must know the URL of your Static Web App so it can accept requests from it.
+Get the Static Web App URL for each environment:
+
+```bash
+# Dev
+az staticwebapp show --name aswa-pregate-dev --query "defaultHostname" -o tsv
+# Returns something like: polite-rock-02a22200f.4.azurestaticapps.net
+
+# UAT
+az staticwebapp show --name aswa-pregate-uat --query "defaultHostname" -o tsv
+
+# Prod
+az staticwebapp show --name aswa-pregate-prod --query "defaultHostname" -o tsv
+```
+
+Then go to GitHub → **Settings** → **Environments** → the matching environment → **Environment secrets**
+and add the `CORS_ORIGINS` secret with the full URL (including `https://`), for example:
+
+- `dev` environment → `CORS_ORIGINS` = `https://polite-rock-02a22200f.4.azurestaticapps.net`
+- `uat` environment → `CORS_ORIGINS` = `https://<your-uat-hostname>.azurestaticapps.net`
+- `prod` environment → `CORS_ORIGINS` = `https://<your-prod-hostname>.azurestaticapps.net`
+
+> **What is CORS?** When your UI (hosted on Static Web Apps) calls your API (hosted on Container Apps),
+> the browser checks whether the API allows requests from the UI's domain. This is called Cross-Origin
+> Resource Sharing (CORS). Setting `CORS_ORIGINS` tells the API which domain to trust.
 
 ---
 
@@ -545,15 +574,19 @@ Actions tab → **Deploy Backend** → **Run workflow** → choose environment (
 This will:
 1. Build the Docker image from the `api/` folder
 2. Push it to Azure Container Registry
-3. Update the Container App to use the new image (replacing the placeholder)
+3. Run database migrations automatically
+4. Update the Container App to use the new image (replacing the placeholder), and set `CORS_ORIGINS` from your GitHub secret
+
+> **Requires:** `CORS_ORIGINS` secret set in GitHub (see Step 9 above) before running for the first time.
 
 ### 11b. Deploy Frontend (UI)
 
 Actions tab → **Deploy Frontend** → **Run workflow** → choose the same environment
 
 This will:
-1. Build the React app with `npm run build`
-2. Deploy the built files to Azure Static Web Apps
+1. Log in to Azure and look up the Container App's URL automatically
+2. Build the React app with the correct API URL baked in
+3. Deploy the built files to Azure Static Web Apps
 
 > **Run workflow button missing?** It only appears when the workflow file is on your repository's **default branch** (usually `main`). Make sure your latest code is merged to `main`.
 
