@@ -10,7 +10,9 @@ param dbAdminPassword string
 @secure()
 param jwtSecret string
 
-param containerImage string = 'acrpregate${environment}.azurecr.io/pregate-api:latest'
+// On first deploy the ACR is empty, so use a public placeholder.
+// Deploy Backend will replace this with the real image after infra is up.
+param containerImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 
 // ─── Log Analytics ────────────────────────────────────────────────────────────
 module logAnalytics 'modules/loganalytics.bicep' = {
