@@ -18,9 +18,9 @@ CREATE TABLE IF NOT EXISTS surveys (
 );
 
 -- ─── questions ────────────────────────────────────────────────────────────────
+-- Questions are a global pool (not tied to a specific survey)
 CREATE TABLE IF NOT EXISTS questions (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  survey_id       UUID REFERENCES surveys(id) ON DELETE CASCADE,
   question_text   TEXT NOT NULL,
   control_type    TEXT CHECK (control_type IN ('radio', 'checkbox', 'true_false')),
   correct_answers JSONB NOT NULL,
@@ -28,8 +28,7 @@ CREATE TABLE IF NOT EXISTS questions (
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_questions_survey_id ON questions(survey_id);
-CREATE INDEX IF NOT EXISTS idx_questions_display_order ON questions(survey_id, display_order);
+CREATE INDEX IF NOT EXISTS idx_questions_display_order ON questions(display_order);
 
 -- ─── responses ────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS responses (

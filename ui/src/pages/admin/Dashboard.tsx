@@ -178,7 +178,17 @@ export default function AdminDashboard() {
                     <td style={styles.td}>
                       <strong>{s.name}</strong>
                       <br />
-                      <small style={styles.inviteUrl}>{inviteUrl(s.invite_uuid)}</small>
+                      <small style={styles.inviteUrl}>
+                        <span style={styles.shareLabel}>Share with User: </span>
+                        <a
+                          href={inviteUrl(s.invite_uuid)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={styles.inviteLink}
+                        >
+                          {inviteUrl(s.invite_uuid)}
+                        </a>
+                      </small>
                     </td>
                     <td style={styles.td}>{s.pass_mark_percent}%</td>
                     <td style={styles.td}>
@@ -306,6 +316,8 @@ const styles: Record<string, React.CSSProperties> = {
   tr: { borderBottom: '1px solid #f7fafc' },
   td: { padding: '1rem', fontSize: '0.9rem', color: '#2d3748', verticalAlign: 'middle' },
   inviteUrl: { color: '#a0aec0', fontFamily: 'monospace', fontSize: '0.75rem' },
+  shareLabel: { color: '#718096', fontFamily: 'inherit', fontWeight: 500 },
+  inviteLink: { color: '#4361ee', textDecoration: 'none' },
   badge: {
     display: 'inline-block',
     padding: '0.2rem 0.6rem',

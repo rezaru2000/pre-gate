@@ -450,10 +450,18 @@ Each deployment takes around 5–10 minutes. When it finishes, the outputs will 
 
 ```
 staticWebAppUrl     = https://aswa-pregate-dev.azurestaticapps.net
-containerAppUrl     = https://ca-pregate-dev.azurecontainerapps.io
-postgresFqdn        = pregate-dev.postgres.database.azure.com
+containerAppUrl     = https://ca-pregate-dev.<random-hash>.australiaeast.azurecontainerapps.io
+postgresFqdn        = psql-pregate-dev.postgres.database.azure.com
 staticWebAppDeploymentToken = <long token>
 ```
+
+> **Note:** The Container App URL includes a random hash Azure generates — it is not a simple predictable URL.
+> The Deploy Frontend workflow automatically looks this up, so you never need to hard-code it.
+> To get it manually later, run:
+> ```bash
+> az containerapp show --name ca-pregate-dev --resource-group rg-pregate-dev \
+>   --query "properties.configuration.ingress.fqdn" -o tsv
+> ```
 
 ### Troubleshooting: "DeploymentActive" error
 
@@ -585,8 +593,12 @@ export DATABASE_URL='postgresql://pregate:YOUR_DB_PASSWORD@psql-pregate-dev.post
 You should see:
 ```
 Running migrations against: postgresql://pregate:...
-Applying: db/migrations/001_initial_schema.sql
-Applying: db/migrations/002_seed_admin.sql
+Applying: .../db/migrations/001_initial_schema.sql
+Applying: .../db/migrations/002_seed_admin.sql
+Applying: .../db/migrations/003_seed_sample_survey.sql
+Applying: .../db/migrations/004_schema_and_seed.sql
+Applying: .../db/migrations/008_questions_independent.sql
+Applying: .../db/migrations/009_add_20_questions.sql
 All migrations applied successfully.
 ```
 
@@ -649,12 +661,31 @@ Then: Actions → **Deploy Backend** or **Deploy Frontend** → **Run workflow**
 
 ## Checking Your Deployments
 
+Get the actual Container App URL for an environment:
+```bash
+az containerapp show --name ca-pregate-dev --resource-group rg-pregate-dev \
+  --query "properties.configuration.ingress.fqdn" -o tsv
+```
 
-| URL pattern                                             | What to check             |
-| ------------------------------------------------------- | ------------------------- |
-| `https://aswa-pregate-{env}.azurestaticapps.net`        | UI loads                  |
-| `https://ca-pregate-{env}.azurecontainerapps.io/health` | Returns `{"status":"ok"}` |
-| `https://aswa-pregate-{env}.azurestaticapps.net/admin`  | Admin login works         |
+Then check each endpoint:
+
+| What to check | URL pattern |
+| ------------- | ----------- |
+| UI loads | `https://aswa-pregate-{env}.azurestaticapps.net` |
+| API health | `https://<container-app-fqdn>/health` → should return `{"status":"ok"}` |
+| Admin login | `https://aswa-pregate-{env}.azurestaticapps.net/admin` |
+
+### Cold start (502 on first login)
+
+The Container App scales to **zero replicas** when idle to save cost. The first request after a period of inactivity wakes it up — this takes 30–60 seconds and the browser may show a 502 error during that time.
+
+**This is normal.** Wait for the "Signing in…" message to disappear, then try logging in again. Subsequent requests will be fast.
+
+To check whether the Container App is running:
+```bash
+az containerapp show --name ca-pregate-dev --resource-group rg-pregate-dev \
+  --query "properties.runningStatus" -o tsv
+```
 
 
 ---
