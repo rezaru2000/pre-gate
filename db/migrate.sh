@@ -6,9 +6,11 @@ set -e
 
 DATABASE_URL="${DATABASE_URL:-postgresql://pregate:pregate_dev_password@localhost:5432/pregate_dev}"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 echo "Running migrations against: $DATABASE_URL"
 
-for file in $(ls migrations/*.sql | sort); do
+for file in $(ls "$SCRIPT_DIR/migrations/"*.sql | sort); do
   echo "Applying: $file"
   psql "$DATABASE_URL" -f "$file"
 done
