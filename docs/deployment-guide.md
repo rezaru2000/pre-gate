@@ -454,51 +454,59 @@ Go back to GitHub → **Settings** → **Secrets** and fill in:
 
 ---
 
-## Step 10 — Run Database Migrations
+## Step 10 — Run Database Migrations (First Time Only)
 
-The cloud database starts empty. You need to run the SQL migration scripts once to create the tables.
+> **From now on, migrations run automatically.** The Deploy Backend workflow now includes a
+> migration step — every time you deploy the backend, it runs the migration scripts before
+> updating the Container App. You only need to run migrations manually for the very first
+> deployment when the database is empty.
 
-### 10a. Install psql (if not already installed)
+### Why migrations run before the Container App update
 
-The migration script uses `psql`, the PostgreSQL command-line client. Check if it is installed:
+The order in Deploy Backend is:
+1. Build and push Docker image to ACR
+2. **Run database migrations** ← schema changes land first
+3. Update Container App to use the new image
+
+This ensures the database is always ready before the new API code starts serving traffic.
+
+### First-time manual run (before your first Deploy Backend)
+
+If your database is empty and you haven't run Deploy Backend yet, run migrations manually once from your laptop.
+
+**Install psql first** (the PostgreSQL command-line client):
 
 ```bash
-psql --version
+psql --version   # check if already installed
 ```
 
-If you see `command not found`, install it on Mac:
-
+If not installed on Mac:
 ```bash
 brew install libpq
 brew link --force libpq
 ```
 
-Then verify again: `psql --version`
-
-### 10b. Get your database hostname
-
+**Get the database hostname:**
 ```bash
-# Dev
 az postgres flexible-server list \
   --resource-group rg-pregate-dev \
   --query "[0].fullyQualifiedDomainName" -o tsv
+# Returns something like: psql-pregate-dev.postgres.database.azure.com
 ```
 
-This returns something like: `psql-pregate-dev.postgres.database.azure.com`
-
-### 10c. Run the migrations
-
-> **Important — zsh users:** Use **single quotes** around the URL. Double quotes cause a
-> `zsh: event not found` error because zsh treats `!` and `@` as special characters.
-
-Set the variable first, then run the script. Replace the password with the value you stored
-in Key Vault as `db-admin-password`:
-
+**Allow your laptop's IP through the firewall:**
 ```bash
-# Set the connection URL (single quotes — do not change to double quotes)
-export DATABASE_URL='postgresql://pregate:YOUR_DB_PASSWORD@psql-pregate-dev.postgres.database.azure.com:5432/pregatedb?sslmode=require'
+MY_IP=$(curl -s https://api.ipify.org)
+az postgres flexible-server firewall-rule create \
+  --resource-group rg-pregate-dev \
+  --name psql-pregate-dev \
+  --rule-name my-laptop \
+  --start-ip-address "$MY_IP" --end-ip-address "$MY_IP"
+```
 
-# Run from the project root
+**Run the migrations** (use single quotes — double quotes cause a zsh error with `!`):
+```bash
+export DATABASE_URL='postgresql://pregate:YOUR_DB_PASSWORD@psql-pregate-dev.postgres.database.azure.com:5432/pregatedb?sslmode=require'
 ./db/migrate.sh
 ```
 
@@ -510,21 +518,16 @@ Applying: db/migrations/002_seed_admin.sql
 All migrations applied successfully.
 ```
 
-Repeat for `uat` and `prod`, replacing the resource group, hostname, and password for each environment:
-
+**Remove the firewall rule when done:**
 ```bash
-# UAT example
-export DATABASE_URL='postgresql://pregate:YOUR_UAT_PASSWORD@psql-pregate-uat.postgres.database.azure.com:5432/pregatedb?sslmode=require'
-./db/migrate.sh
-
-# Prod example
-export DATABASE_URL='postgresql://pregate:YOUR_PROD_PASSWORD@psql-pregate-prod.postgres.database.azure.com:5432/pregatedb?sslmode=require'
-./db/migrate.sh
+az postgres flexible-server firewall-rule delete \
+  --resource-group rg-pregate-dev \
+  --name psql-pregate-dev \
+  --rule-name my-laptop --yes
 ```
 
-> **Why `pregatedb` and not `pregate_dev`?** The local Docker setup uses `pregate_dev` as the
-> database name. The Azure Bicep creates the database as `pregatedb`. These are different names
-> for different environments — always use `pregatedb` for cloud migrations.
+> **Why `pregatedb` and not `pregate_dev`?** The local Docker setup uses `pregate_dev`.
+> The Azure Bicep creates the database as `pregatedb`. Always use `pregatedb` for cloud migrations.
 
 > **Why `?sslmode=require`?** Azure PostgreSQL requires encrypted connections. The local Docker
 > database does not enforce this, but the cloud database does.

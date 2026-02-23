@@ -86,6 +86,43 @@ jobs:
 
           echo "IMAGE=${IMAGE}" >> $GITHUB_ENV
 
+      - name: Run database migrations
+        run: |
+          set -e
+          ENV="${{ steps.env.outputs.environment }}"
+          RG="${{ steps.env.outputs.resource_group }}"
+          SERVER="psql-pregate-${ENV}"
+
+          # Get the runner's public IP so we can allow it through the DB firewall
+          RUNNER_IP=$(curl -s https://api.ipify.org)
+
+          # Get DB hostname and password from Azure (already authenticated above)
+          DB_HOST=$(az postgres flexible-server show \
+            --resource-group "$RG" --name "$SERVER" \
+            --query "fullyQualifiedDomainName" -o tsv)
+
+          DB_PASSWORD=$(az keyvault secret show \
+            --vault-name "kv-pregate-${ENV}" \
+            --name "db-admin-password" \
+            --query "value" -o tsv)
+
+          # Open firewall for runner IP
+          az postgres flexible-server firewall-rule create \
+            --resource-group "$RG" --name "$SERVER" \
+            --rule-name "github-actions-runner" \
+            --start-ip-address "$RUNNER_IP" --end-ip-address "$RUNNER_IP"
+
+          # Run migrations — always clean up firewall rule afterwards
+          export DATABASE_URL="postgresql://pregate:${DB_PASSWORD}@${DB_HOST}:5432/pregatedb?sslmode=require"
+          chmod +x ./db/migrate.sh
+          ./db/migrate.sh; EXIT_CODE=$?
+
+          az postgres flexible-server firewall-rule delete \
+            --resource-group "$RG" --name "$SERVER" \
+            --rule-name "github-actions-runner" --yes 2>/dev/null || true
+
+          exit $EXIT_CODE
+
       - name: Update Container App
         run: |
           az containerapp update \
