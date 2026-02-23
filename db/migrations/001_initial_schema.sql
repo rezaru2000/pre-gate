@@ -3,8 +3,7 @@
 
 BEGIN;
 
--- Enable pgcrypto for gen_random_uuid()
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- gen_random_uuid() is built into PostgreSQL 13+ without any extension
 
 -- ─── surveys ──────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS surveys (
