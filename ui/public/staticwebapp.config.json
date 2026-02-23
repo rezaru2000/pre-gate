@@ -1,0 +1,9 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/api/*", "/health"]
+  },
+  "mimeTypes": {
+    ".json": "application/json"
+  }
+}

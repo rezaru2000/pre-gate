@@ -1,0 +1,45 @@
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches:
+      - main
+      - uat
+      - dev
+    paths:
+      - 'infra/**'
+
+jobs:
+  deploy:
+    name: Deploy Bicep (${{ github.ref_name }})
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine environment
+        id: env
+        run: |
+          case "${{ github.ref_name }}" in
+            main) echo "environment=prod" >> $GITHUB_OUTPUT
+                  echo "resource_group=rg-pregate-prod" >> $GITHUB_OUTPUT ;;
+            uat)  echo "environment=uat" >> $GITHUB_OUTPUT
+                  echo "resource_group=rg-pregate-uat" >> $GITHUB_OUTPUT ;;
+            dev)  echo "environment=dev" >> $GITHUB_OUTPUT
+                  echo "resource_group=rg-pregate-dev" >> $GITHUB_OUTPUT ;;
+          esac
+
+      - name: Azure login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy Bicep
+        uses: azure/arm-deploy@v1
+        with:
+          subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          resourceGroupName: ${{ steps.env.outputs.resource_group }}
+          template: ./infra/main.bicep
+          parameters: ./infra/parameters.${{ steps.env.outputs.environment }}.json
+          failOnStdErr: false

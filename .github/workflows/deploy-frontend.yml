@@ -1,0 +1,58 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches:
+      - main
+      - uat
+      - dev
+    paths:
+      - 'ui/**'
+      - '.github/workflows/deploy-frontend.yml'
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy UI (${{ github.ref_name }})
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine environment
+        id: env
+        run: |
+          case "${{ github.ref_name }}" in
+            main) echo "vite_env=production" >> $GITHUB_OUTPUT
+                  echo "deployment_token_secret=AZURE_STATIC_WEB_APP_TOKEN_PROD" >> $GITHUB_OUTPUT ;;
+            uat)  echo "vite_env=uat" >> $GITHUB_OUTPUT
+                  echo "deployment_token_secret=AZURE_STATIC_WEB_APP_TOKEN_UAT" >> $GITHUB_OUTPUT ;;
+            dev)  echo "vite_env=development" >> $GITHUB_OUTPUT
+                  echo "deployment_token_secret=AZURE_STATIC_WEB_APP_TOKEN_DEV" >> $GITHUB_OUTPUT ;;
+          esac
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ui
+
+      - name: Build
+        run: npm run build
+        working-directory: ui
+        env:
+          VITE_ENV: ${{ steps.env.outputs.vite_env }}
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets[steps.env.outputs.deployment_token_secret] }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: ui/dist
+          skip_app_build: true
