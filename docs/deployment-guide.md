@@ -447,6 +447,8 @@ Repeat for `uat` and `prod` with their respective passwords and hostnames.
 
 From here on, deployment is **manual**. Go to Actions → select the workflow → Run workflow → choose environment.
 
+> **Run workflow button missing?** It only appears when the workflow file is on your repository's **default branch** (usually `main`). Merge your changes to main first.
+
 ```bash
 # Deploy to dev
 # Then: Actions → Deploy Backend / Deploy Frontend → Run workflow → choose dev
