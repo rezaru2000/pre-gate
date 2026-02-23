@@ -9,10 +9,21 @@ on:
     paths:
       - 'api/**'
       - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - uat
+          - prod
 
 jobs:
   build-and-deploy:
-    name: Build & Deploy API (${{ github.ref_name }})
+    name: Build & Deploy API (${{ github.event.inputs.environment || github.ref_name }})
     runs-on: ubuntu-latest
 
     steps:
@@ -22,8 +33,9 @@ jobs:
       - name: Determine environment
         id: env
         run: |
-          case "${{ github.ref_name }}" in
-            main) echo "environment=prod" >> $GITHUB_OUTPUT
+          ENV="${{ github.event.inputs.environment || (github.ref_name == 'main' && 'prod' || github.ref_name == 'uat' && 'uat' || 'dev') }}"
+          case "$ENV" in
+            prod) echo "environment=prod" >> $GITHUB_OUTPUT
                   echo "acr=acrpregatemrod" >> $GITHUB_OUTPUT
                   echo "container_app=ca-pregate-prod" >> $GITHUB_OUTPUT
                   echo "resource_group=rg-pregate-prod" >> $GITHUB_OUTPUT ;;
@@ -31,7 +43,7 @@ jobs:
                   echo "acr=acrpregateuat" >> $GITHUB_OUTPUT
                   echo "container_app=ca-pregate-uat" >> $GITHUB_OUTPUT
                   echo "resource_group=rg-pregate-uat" >> $GITHUB_OUTPUT ;;
-            dev)  echo "environment=dev" >> $GITHUB_OUTPUT
+            *)    echo "environment=dev" >> $GITHUB_OUTPUT
                   echo "acr=acrpregatedev" >> $GITHUB_OUTPUT
                   echo "container_app=ca-pregate-dev" >> $GITHUB_OUTPUT
                   echo "resource_group=rg-pregate-dev" >> $GITHUB_OUTPUT ;;

@@ -9,10 +9,21 @@ on:
     paths:
       - 'ui/**'
       - '.github/workflows/deploy-frontend.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - uat
+          - prod
 
 jobs:
   build-and-deploy:
-    name: Build & Deploy UI (${{ github.ref_name }})
+    name: Build & Deploy UI (${{ github.event.inputs.environment || github.ref_name }})
     runs-on: ubuntu-latest
 
     steps:
@@ -22,12 +33,13 @@ jobs:
       - name: Determine environment
         id: env
         run: |
-          case "${{ github.ref_name }}" in
-            main) echo "vite_env=production" >> $GITHUB_OUTPUT
+          ENV="${{ github.event.inputs.environment || (github.ref_name == 'main' && 'prod' || github.ref_name == 'uat' && 'uat' || 'dev') }}"
+          case "$ENV" in
+            prod) echo "vite_env=production" >> $GITHUB_OUTPUT
                   echo "deployment_token_secret=AZURE_STATIC_WEB_APP_TOKEN_PROD" >> $GITHUB_OUTPUT ;;
             uat)  echo "vite_env=uat" >> $GITHUB_OUTPUT
                   echo "deployment_token_secret=AZURE_STATIC_WEB_APP_TOKEN_UAT" >> $GITHUB_OUTPUT ;;
-            dev)  echo "vite_env=development" >> $GITHUB_OUTPUT
+            *)    echo "vite_env=development" >> $GITHUB_OUTPUT
                   echo "deployment_token_secret=AZURE_STATIC_WEB_APP_TOKEN_DEV" >> $GITHUB_OUTPUT ;;
           esac
 
